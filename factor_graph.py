@@ -19,6 +19,10 @@ class FactorGraph(nx.Graph):
         self.factor_nodes = nodes
         super().add_nodes_from(nodes)
 
+    def _clear_messages(self):
+        for node in self.var_nodes:
+            node.clear_messages()
+
     def sum_product(self, node=None):
         """
         This function runs the sum product algorithm
@@ -26,6 +30,7 @@ class FactorGraph(nx.Graph):
         :param node: The root node in the graph
         :return: None
         """
+        self._clear_messages()
         if node is None:
             node = choice(self.nodes)
         elif node not in self.nodes:
@@ -38,17 +43,42 @@ class FactorGraph(nx.Graph):
             u.sum_product(v)
         pass
 
-    def max_sum(self):
+    def max_product(self, node=None):
+        self._clear_messages()
+        if node is None:
+            node = choice(self.nodes)
+        elif node not in self.nodes:
+            raise IndexError("the requested node not found")
+        backward = list(nx.dfs_edges(self, source=node))
+        forward = reversed(backward)
+        for (v, u) in forward:
+            u.max_product(v)
+        for (u, v) in backward:
+            u.max_product(v)
         pass
 
-    def loopy_sum_product(self):
+    def max_sum(self, node=None):
+        self._clear_messages()
+        if node is None:
+            node = choice(self.nodes)
+        elif node not in self.nodes:
+            raise IndexError("the requested node not found")
+        backward = list(nx.dfs_edges(self, source=node))
+        forward = reversed(backward)
+        for (v, u) in forward:
+            u.max_sum(v)
+        for (u, v) in backward:
+            u.max_sum(v)
+        pass
+
+    def loopy_sum_product(self, iterations=10, epsilon=1e-2):
         pass
 
     def loopy_max_sum(self):
         pass
 
     def transform_junction(self):
-        pass
+        raise NotImplementedError("WIP: not implemented yet")
 
 
 

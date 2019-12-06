@@ -20,8 +20,8 @@ fa = FactorNode(cpd_a, (x1, x2), name='fa', **params)
 fb = FactorNode(cpd_b, (x2, x3), name='fb', **params)
 fc = FactorNode(cpd_c, (x2, x4), name='fc', **params)
 
-fg.add_nodes_from([x1, x2, x3, x4])
-fg.add_nodes_from([fa, fb, fc])
+fg.add_var_nodes([x1, x2, x3, x4])
+fg.add_factor_nodes([fa, fb, fc])
 
 fg.add_edge(x1, fa)
 fg.add_edge(fa, x2)
@@ -33,4 +33,5 @@ fg.add_edge(fc, x4)
 print(fg.nodes)
 print(fg.neighbors(x4))
 fg.sum_product(x3)
-
+fg.max_product(x3)
+fg.max_sum(x3)
