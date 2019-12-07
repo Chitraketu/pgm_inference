@@ -10,11 +10,12 @@ class Node(ABC):
         self.name = name
         if init is None: # assume that this is a binary variable
             init = np.array([1., 1.])
+        self._init = init
         self.belief = init
         self.log_belief = np.log(init)
 
-    def belief(self):
-        return self.belief
+    def reset_belief(self):
+        self.belief = self._init
 
     def get_neighbors(self, exclude=None):
         neighbors = self.graph.neighbors(self)
@@ -47,28 +48,44 @@ class VarNode(Node):
         self.messages_in = {}
         self.messages_out = {}
 
-    def sum_product(self, node: Node):
+    def update_belief(self):
+        msg = np.ones_like(self.belief)
+        for factor in self.messages_in:
+            msg *= self.messages_in[factor]
+        self.belief = msg / np.linalg.norm(msg, 1)
+
+    def update_log_belief(self):
+        msg = np.zeros_like(self.log_belief)
+        for factor in self.messages_in:
+            msg += self.messages_in[factor]
+        self.belief = np.exp(msg) / sum(np.exp(msg))
+        self.log_belief = np.log(self.belief)
+
+    def sum_product(self, node: Node, normalize=False):
         neighbors = self.get_neighbors(exclude=node)
-        if not neighbors:
-            msg = self.belief
-        else:
-            msg = np.ones_like(self.belief)
+        msg = np.ones_like(self.belief)
         for nbd in neighbors:
             msg *= self.messages_in[nbd]
+        if normalize:
+            msg = msg / (np.sum(msg) + 1e-10)
         self.messages_out[node] = msg
 
-    def max_product(self, node: Node):
-        self.sum_product(node)
+    def max_product(self, node: Node, normalize=False):
+        self.sum_product(node, normalize=normalize)
 
-    def max_sum(self, node: Node):
+    def max_sum(self, node: Node, normalize=False):
         neighbors = self.get_neighbors(exclude=node)
-        if not neighbors:
-            msg = self.belief
-        else:
-            msg = np.zeros_like(self.log_belief)
+        msg = np.zeros_like(self.log_belief)
         for nbd in neighbors:
             msg += self.messages_in[nbd]
+        if normalize:
+            msg = msg - np.log(np.sum(np.exp(msg)))
         self.messages_out[node] = msg
+
+    def loopy_sum_product(self, node: Node):
+        self.sum_product(node)
+        msg = self.messages_out[node]
+        self.messages_out[node] = msg / np.linalg.norm(msg, 1)
 
 
 class FactorNode(Node):
@@ -90,27 +107,33 @@ class FactorNode(Node):
         msg = msg.transpose(order)
         return msg
 
-    def sum_product(self, node: Node):
+    def sum_product(self, node: Node, normalize=False):
         neighbors = self.get_neighbors(exclude=node)
         msg = self._get_init_msg(node)
         for nbd in reversed(neighbors):
             msg = np.dot(msg, nbd.messages_out[self])
+        if normalize:
+            msg = msg / (np.sum(msg) + 1e-10)
         node.messages_in[self] = msg
         return msg
 
-    def max_product(self, node: Node):
+    def max_product(self, node: Node, normalize=False):
         neighbors = self.get_neighbors(exclude=node)
         msg = self._get_init_msg(node)
         for nbd in reversed(neighbors):
             msg = np.multiply(msg, nbd.messages_out[self]).max(-1)
+        if normalize:
+            msg = msg / (np.sum(msg) + 1e-10)
         node.messages_in[self] = msg
         return msg
 
-    def max_sum(self, node: Node):
+    def max_sum(self, node: Node, normalize=False):
         neighbors = self.get_neighbors(exclude=node)
         msg = self._get_init_msg(node)
         msg = np.log(msg)
         for nbd in reversed(neighbors):
             msg = (msg + nbd.messages_out[self]).max(-1)
+        if normalize:
+            msg = msg - np.log(np.sum(np.exp(msg)))
         node.messages_in[self] = msg
         return msg
