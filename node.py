@@ -97,19 +97,21 @@ class FactorNode(Node):
         self.order_neighbors = {var: i for (i, var) in enumerate(ordered_variables)}
         self.type = "factor"
 
-    def _get_init_msg(self, node):
+    def _get_init_msg(self, node, neighbors=None):
         if node not in self.order_neighbors:
             raise IndexError("Node not the neighbor of this factor node")
+        if neighbors is None:
+            neighbors = self.get_neighbors(exclude=node)
         msg = self.cpd
         pos = self.order_neighbors[node]
-        order = [x for x in range(len(self.cpd.shape)) if x != pos]
+        order = [self.order_neighbors[x] for x in neighbors]
         order = tuple([pos]+order)
         msg = msg.transpose(order)
         return msg
 
     def sum_product(self, node: Node, normalize=False):
         neighbors = self.get_neighbors(exclude=node)
-        msg = self._get_init_msg(node)
+        msg = self._get_init_msg(node, neighbors=neighbors)
         for nbd in reversed(neighbors):
             msg = np.dot(msg, nbd.messages_out[self])
         if normalize:
@@ -119,7 +121,7 @@ class FactorNode(Node):
 
     def max_product(self, node: Node, normalize=False):
         neighbors = self.get_neighbors(exclude=node)
-        msg = self._get_init_msg(node)
+        msg = self._get_init_msg(node, neighbors=neighbors)
         for nbd in reversed(neighbors):
             msg = np.multiply(msg, nbd.messages_out[self]).max(-1)
         if normalize:
@@ -129,7 +131,7 @@ class FactorNode(Node):
 
     def max_sum(self, node: Node, normalize=False):
         neighbors = self.get_neighbors(exclude=node)
-        msg = self._get_init_msg(node)
+        msg = self._get_init_msg(node, neighbors=neighbors)
         msg = np.log(msg)
         for nbd in reversed(neighbors):
             msg = (msg + nbd.messages_out[self]).max(-1)
